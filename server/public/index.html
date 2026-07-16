@@ -685,7 +685,7 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:7px}
 
 /* ===== 星辰Chat API 客户端 ===== */
 var API={
-  base:'',
+  base:'https://xingchen-chat.loca.lt',
   token:null,
   loadToken:function(){try{this.token=localStorage.getItem('xc_token')||null}catch(e){}return this.token},
   setToken:function(t){this.token=t;try{localStorage.setItem('xc_token',t)}catch(e){}},
@@ -716,7 +716,7 @@ var socket=null;
 var onlineFriends={};
 function initSocket(){
   if(!API.token)return;
-  socket=io({auth:{token:API.token}});
+  socket=io(API.base,{auth:{token:API.token},transports:['websocket','polling']});
   socket.on('connect',function(){console.log('[Socket] 已连接')});
   socket.on('disconnect',function(){console.log('[Socket] 已断开')});
 
