@@ -685,11 +685,29 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:7px}
 
 /* ===== 星辰Chat API 客户端 ===== */
 var API={
-  base:'https://large-llamas-bathe.loca.lt',
+  base:'',
+  configUrl:'https://cdn.jsdelivr.net/gh/chengtqy/xincchat@main/config.json',
   token:null,
   loadToken:function(){try{this.token=localStorage.getItem('xc_token')||null}catch(e){}return this.token},
   setToken:function(t){this.token=t;try{localStorage.setItem('xc_token',t)}catch(e){}},
   clearToken:function(){this.token=null;try{localStorage.removeItem('xc_token')}catch(e){}},
+  loadConfig:function(){
+    var self=this;
+    return new Promise(function(resolve){
+      var xhr=new XMLHttpRequest();
+      xhr.open('GET',self.configUrl+'?t='+Date.now());
+      xhr.onreadystatechange=function(){
+        if(xhr.readyState===4){
+          try{var r=JSON.parse(xhr.responseText);
+            if(r.serverUrl){self.base=r.serverUrl;resolve(r.serverUrl)}
+            else resolve(null)
+          }catch(e){resolve(null)}
+        }
+      };
+      xhr.onerror=function(){resolve(null)};
+      xhr.send();
+    });
+  },
   req:function(method,path,body){
     var self=this;
     return new Promise(function(resolve,reject){
@@ -1230,25 +1248,36 @@ function addFriendToList(user){
   if(!exists){S.sessions.push({id:sid,type:'p',cid:user.id,name:user.username,last:'已添加为好友，开始聊天吧！',time:Date.now(),unread:0,pin:false,mute:false});S.messages[sid]=[]}
 }
 
-if(API.token){
-  /* 已登录 - 验证token有效性 */
-  API.req('GET','/auth/me').then(function(user){
-    S.user={id:user.id,nid:user.nid,username:user.username,avatarColor:user.avatarColor,avatarB64:user.avatarB64,bio:user.bio,friends:[],blocked:[]};
-    saveUser();
-    initSocket();
-    loadAllData().then(function(){
-      S.view='main';renderAll();
+/* APP启动：先从GitHub拉取后端地址，再初始化 */
+API.loadConfig().then(function(url){
+  if(!url){
+    /* 配置拉取失败，显示错误 */
+    S.view='login';renderAll();renderAuthForm();
+    var errEl=document.getElementById('auth-err');
+    if(errEl)errEltextContent='无法连接服务器，请检查网络';
+    return;
+  }
+  console.log('[APP] 后端地址:',url);
+  if(API.token){
+    /* 已登录 - 验证token有效性 */
+    API.req('GET','/auth/me').then(function(user){
+      S.user={id:user.id,nid:user.nid,username:user.username,avatarColor:user.avatarColor,avatarB64:user.avatarB64,bio:user.bio,friends:[],blocked:[]};
+      saveUser();
+      initSocket();
+      loadAllData().then(function(){
+        S.view='main';renderAll();
+      });
+    }).catch(function(e){
+      /* token过期 */
+      API.clearToken();
+      S.view='login';
+      renderAll();renderAuthForm();
     });
-  }).catch(function(e){
-    /* token过期 */
-    API.clearToken();
+  }else{
     S.view='login';
     renderAll();renderAuthForm();
-  });
-}else{
-  S.view='login';
-  renderAll();renderAuthForm();
-}
+  }
+});
 
 function openSessCtx(sId,x,y){var s=null;for(var i=0;i<S.sessions.length;i++){if(S.sessions[i].id===sId){s=S.sessions[i];break}}if(!s)return;var items=[];if(s.pin)items.push({icon:'&#128204;',label:'取消置顶',action:function(){unpinSession(sId)}});else items.push({icon:'&#128204;',label:'置顶聊天',action:function(){pinSession(sId)}});if(s.mute)items.push({icon:'&#128266;',label:'开启通知',action:function(){toggleMute(sId)}});else items.push({icon:'&#128263;',label:'消息免打扰',action:function(){toggleMute(sId)}});items.push({icon:'&#128465;',label:'删除聊天',danger:true,action:function(){deleteSession(sId)}});showCtxMenu(x,y,items)}
 var _lpTimer=null;var _lpFired=false;var _ctxOpenTime=0;
