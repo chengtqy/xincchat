@@ -1,0 +1,11 @@
+{
+  "name": "xingchen-chat",
+  "version": "1.0.0",
+  "description": "星辰Chat 安卓应用",
+  "main": "index.js",
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  }
+}
