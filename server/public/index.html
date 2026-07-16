@@ -686,26 +686,65 @@ input[type=color]::-webkit-color-swatch{border:none;border-radius:7px}
 /* ===== 星辰Chat API 客户端 ===== */
 var API={
   base:'',
-  configUrl:'https://cdn.jsdelivr.net/gh/chengtqy/xincchat@main/config.json',
+  configUrls:[
+    'https://cdn.jsdelivr.net/gh/chengtqy/xincchat@main/config.json',
+    'https://fastly.jsdelivr.net/gh/chengtqy/xincchat@main/config.json',
+    'https://raw.githubusercontent.com/chengtqy/xincchat/main/config.json',
+    'https://api.github.com/repos/chengtqy/xincchat/contents/config.json'
+  ],
   token:null,
   loadToken:function(){try{this.token=localStorage.getItem('xc_token')||null}catch(e){}return this.token},
   setToken:function(t){this.token=t;try{localStorage.setItem('xc_token',t)}catch(e){}},
   clearToken:function(){this.token=null;try{localStorage.removeItem('xc_token')}catch(e){}},
   loadConfig:function(){
     var self=this;
-    return new Promise(function(resolve){
+    var urls=self.configUrls.slice();
+    function tryNext(){
+      if(urls.length===0){resolve(null);return}
+      var url=urls.shift()+'?t='+Date.now();
       var xhr=new XMLHttpRequest();
-      xhr.open('GET',self.configUrl+'?t='+Date.now());
+      xhr.open('GET',url);
+      xhr.timeout=8000;
       xhr.onreadystatechange=function(){
         if(xhr.readyState===4){
-          try{var r=JSON.parse(xhr.responseText);
-            if(r.serverUrl){self.base=r.serverUrl;resolve(r.serverUrl)}
-            else resolve(null)
-          }catch(e){resolve(null)}
+          if(xhr.status===200){
+            try{var r=JSON.parse(xhr.responseText);
+              var serverUrl=r.serverUrl;
+              if(serverUrl){self.base=serverUrl;resolve(serverUrl);return}
+            }catch(e){}
+          }
+          tryNext();
         }
       };
-      xhr.onerror=function(){resolve(null)};
+      xhr.ontimeout=function(){tryNext()};
+      xhr.onerror=function(){tryNext()};
       xhr.send();
+    }
+    function resolve(v){/* placeholder */}
+    return new Promise(function(resolve){
+      self._resolveConfig=resolve;
+      function tryNext2(){
+        if(urls.length===0){resolve(null);return}
+        var url=urls.shift()+'?t='+Date.now();
+        var xhr=new XMLHttpRequest();
+        xhr.open('GET',url);
+        xhr.timeout=8000;
+        xhr.onreadystatechange=function(){
+          if(xhr.readyState===4){
+            if(xhr.status===200){
+              try{var r=JSON.parse(xhr.responseText);
+                var serverUrl=r.serverUrl||r.content?JSON.parse(atob(r.content)).serverUrl:null;
+                if(serverUrl){self.base=serverUrl;resolve(serverUrl);return}
+              }catch(e){}
+            }
+            tryNext2();
+          }
+        };
+        xhr.ontimeout=function(){tryNext2()};
+        xhr.onerror=function(){tryNext2()};
+        xhr.send();
+      }
+      tryNext2();
     });
   },
   req:function(method,path,body){
